@@ -6,7 +6,9 @@ const app = express();
 const PORT = 3000;
 
 // رابط موقع MangaTuk الأساسي
-const BASE_URL = 'https://mangatuk.com';
+const BASE_URL_MANGATUK = 'https://mangatuk.com';
+// رابط موقع MangaTime الأساسي
+const BASE_URL_MANGATIME = 'https://mangatime.org';
 
 // إعدادات الطلبات (محاكاة متصفح)
 const requestHeaders = {
@@ -16,11 +18,11 @@ const requestHeaders = {
 };
 
 // =====================
-// 1. قائمة المانجا (الأحدث / صفحة التصفح)
+// 1. قائمة المانجا لـ MangaTuk (الأحدث / صفحة التصفح)
 // =====================
 app.get('/api/list', async (req, res) => {
     const page = req.query.page || 1;
-    const url = `${BASE_URL}/browse?page=${page}`;
+    const url = `${BASE_URL_MANGATUK}/browse?page=${page}`;
 
     try {
         const { data } = await axios.get(url, { headers: requestHeaders });
@@ -52,17 +54,16 @@ app.get('/api/list', async (req, res) => {
 });
 
 // =====================
-// 2. تفاصيل مانجا واحدة (يُستخدم لاحقًا)
+// 2. تفاصيل مانجا لـ MangaTuk (يُستخدم لاحقًا)
 // =====================
 app.get('/api/details', async (req, res) => {
     const mangaUrl = req.query.url;
     if (!mangaUrl) return res.status(400).json({ success: false, message: 'missing url' });
 
-    const url = mangaUrl.startsWith('http') ? mangaUrl : `${BASE_URL}${mangaUrl}`;
+    const url = mangaUrl.startsWith('http') ? mangaUrl : `${BASE_URL_MANGATUK}${mangaUrl}`;
     try {
         const { data } = await axios.get(url, { headers: requestHeaders });
         const $ = cheerio.load(data);
-        // هذه المحددات سنضبطها بعد تجربتك الأولى، لكن نضع هيكلًا مبدئيًا
         const title = $('h1').first().text().trim();
         const cover = $('img[alt]').first().attr('src') || '';
         const desc = $('p').first().text().trim();
@@ -80,18 +81,17 @@ app.get('/api/details', async (req, res) => {
 });
 
 // =====================
-// 3. قائمة الفصول (يُستخدم لاحقًا)
+// 3. قائمة الفصول لـ MangaTuk (يُستخدم لاحقًا)
 // =====================
 app.get('/api/chapters', async (req, res) => {
     const mangaUrl = req.query.url;
     if (!mangaUrl) return res.status(400).json({ success: false });
 
-    const url = mangaUrl.startsWith('http') ? mangaUrl : `${BASE_URL}${mangaUrl}`;
+    const url = mangaUrl.startsWith('http') ? mangaUrl : `${BASE_URL_MANGATUK}${mangaUrl}`;
     try {
         const { data } = await axios.get(url, { headers: requestHeaders });
         const $ = cheerio.load(data);
         const chapters = [];
-        // افتراضيًا نبحث عن روابط تنتهي برقم
         $('a[href]').each((i, el) => {
             const href = $(el).attr('href');
             if (href && /\/chapter\/\d+/.test(href)) {
@@ -99,7 +99,7 @@ app.get('/api/chapters', async (req, res) => {
                     id: href,
                     number: parseFloat(href.split('/').pop()),
                     title: $(el).text().trim(),
-                    url: href.startsWith('http') ? href : `${BASE_URL}${href}`
+                    url: href.startsWith('http') ? href : `${BASE_URL_MANGATUK}${href}`
                 });
             }
         });
@@ -111,7 +111,7 @@ app.get('/api/chapters', async (req, res) => {
 });
 
 // =====================
-// 4. صور الفصل (المسار الذي كتبته أنت مع تحسينات)
+// 4. صور الفصل لـ MangaTuk
 // =====================
 app.get('/api/chapter/images', async (req, res) => {
     const chapterUrl = req.query.url;
@@ -135,8 +135,44 @@ app.get('/api/chapter/images', async (req, res) => {
     }
 });
 
+// =====================
+// 5. MangaTime - قائمة المانجا (جديد)
+// =====================
+app.get('/api/mangatime/list', async (req, res) => {
+    const page = req.query.page || 1;
+    const url = `${BASE_URL_MANGATIME}/browse?page=${page}`;
+
+    try {
+        const { data } = await axios.get(url, { headers: requestHeaders });
+        const $ = cheerio.load(data);
+        const mangas = [];
+
+        $('a[data-cds-variant="search-result/simple-cover"]').each((i, el) => {
+            const href = $(el).attr('href') || '';
+            const title = $(el).find('h3').text().trim();
+            const img = $(el).find('img').attr('src') || '';
+            const chapterText = $(el).find('p.text-persimmon-glow').text().trim();
+            const chapters = parseInt(chapterText.match(/\d+/)?.[0] || '0');
+
+            if (href && title) {
+                mangas.push({
+                    id: href,
+                    title: title,
+                    cover: img,
+                    chapters: chapters
+                });
+            }
+        });
+
+        console.log(`MangaTime: found ${mangas.length} mangas on page ${page}`);
+        res.json({ success: true, mangas });
+    } catch (err) {
+        console.error('MangaTime error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 // تشغيل الخادم
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Server running on http://localhost:${PORT}`);
-    console.log(`📱 Use your PC's IP address from mobile: http://YOUR_IP:${PORT}`);
 });
