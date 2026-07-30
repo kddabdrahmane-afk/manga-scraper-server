@@ -5,7 +5,6 @@ const cheerio = require('cheerio');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ترويسات تحاكي متصفح Chrome حقيقي
 const browserHeaders = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -23,7 +22,6 @@ const browserHeaders = {
     'Upgrade-Insecure-Requests': '1',
 };
 
-// مسار MangaTime
 app.get('/api/mangatime/list', async (req, res) => {
     const page = req.query.page || 1;
     const url = `https://mangatime.org/browse?page=${page}`;
@@ -33,6 +31,10 @@ app.get('/api/mangatime/list', async (req, res) => {
             headers: browserHeaders,
             timeout: 30000,
         });
+
+        console.log('=== MangaTime HTML preview ===');
+        console.log(data.substring(0, 500));
+        console.log('=== End of preview ===');
 
         const $ = cheerio.load(data);
         const mangas = [];
@@ -62,23 +64,7 @@ app.get('/api/mangatime/list', async (req, res) => {
     }
 });
 
-// باقي مسارات MangaTuk (اختياري)
-app.get('/api/list', async (req, res) => {
-    // ... (نفس الكود السابق) ...
-});
-
-app.get('/api/details', async (req, res) => {
-    // ...
-});
-
-app.get('/api/chapters', async (req, res) => {
-    // ...
-});
-
-app.get('/api/chapter/images', async (req, res) => {
-    // ...
-});
-
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on port ${PORT}`);
 });
